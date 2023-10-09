@@ -1,7 +1,11 @@
-from .module_util import *
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import functools
+from .module_util import *
 from data.IXI_dataset import complex_to_real, real_to_complex
-
+import functools
+from .module_util import *
 
 class Encoding_Block(torch.nn.Module):
     def __init__(self, c_in, n_feat):
@@ -112,15 +116,14 @@ class VANet(nn.Module):
     def __init__(self):
         super(VANet, self).__init__()
 
-        self.in_channel = 64
-        self.channel_fea = 64
+        self.in_channel = 32
+        self.channel_fea = 32
         self.iter_num = 4
 
-        ## map to image domain (rec)
-        self.map_rec_x = nn.Conv2d(in_channels=self.channel_fea, out_channels=1, kernel_size=3, padding=3 // 2)
-        self.map_rec_y = nn.Conv2d(in_channels=self.channel_fea, out_channels=1, kernel_size=3, padding=3 // 2)
+        ## map to image domain
+        self.map_rec_x = nn.Conv2d(in_channels=self.in_channel, out_channels=1, kernel_size=3, padding=3 // 2)
+        self.map_rec_y = nn.Conv2d(in_channels=self.in_channel, out_channels=1, kernel_size=3, padding=3 // 2)
 
-        # initialize variables
         self.init_x = Unet_denoise(cin=self.in_channel, n_feat=self.channel_fea)
         self.init_c = Unet_denoise(cin=self.in_channel, n_feat=self.channel_fea)
 
@@ -132,18 +135,28 @@ class VANet(nn.Module):
         ## CDic layer
         self.E_x = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
+                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
-        self.D_x = nn.Sequential(*[nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2),\
+        self.D_x = nn.Sequential(*[nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
+                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
         self.E_c = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
+                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
         self.D_c = nn.Sequential(*[nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
+                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
-
-        # learnable parameters
+        self.T_c = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=3, padding=3 // 2), \
+                                    nn.ReLU(), \
+                                   nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
+        
         self.mu_x = [nn.Parameter(torch.tensor(0.1)) for _ in range(self.iter_num)]
         self.mu_c = [nn.Parameter(torch.tensor(0.1)) for _ in range(self.iter_num)]
 
@@ -168,11 +181,11 @@ class VANet(nn.Module):
         # mask: undersampling mask [b,1,h,w]
 
         # repeat input image to high-dimension
-        x = x.repeat(1,64,1,1)
-        y = y.repeat(1,64,1,1)
+        x = x.repeat(1,self.in_channel,1,1)
+        y = y.repeat(1,self.in_channel,1,1)
 
         # x_k
-        mask = mask.repeat(1,64,1,1)
+        mask = mask.repeat(1,self.in_channel,1,1)
         x_k = real_to_complex(x)
 
         # initialize variables
@@ -184,28 +197,25 @@ class VANet(nn.Module):
 
         for i in range(self.iter_num):
             # update x
-            DC_x = self.data_consistency_layer(x_t0, x_k, mask)  ## k-sapce DC
-            refine = self.gamma_x[i]*self.D_x(self.E_x(x_t0)-self.E_c(c_t0)) + self.lamda_1[i]*self.denoise_x(x_t0)  # image refine
+            DC_x = self.data_consistency_layer(x_t0, x_k, mask)  ## DC
+            refine = self.gamma_x[i]*self.D_x(self.E_x(x_t0)-self.E_c(c_t0)) + self.lamda_1[i]*self.denoise_x(x_t0)  # refine
             x_t1 = DC_x - self.mu_x[i]*refine # update x
             if i != self.iter_num-1:
                 # update C and U
-                c_t1 = c_t0 - self.mu_c[i]*(c_t0+u_t0-self.gamma_c[i]*self.D_c(self.E_x(x_t0)-self.E_c(c_t0))-self.alpha[i]*(P_t0-c_t0))
+                c_t1 = self.T_c(y - u_t0 + self.gamma_c[i]*self.D_c(self.E_x(x_t0)) + self.alpha[i]*P_t0)
                 u_t1 = (y + self.beta[i]*Q_t0 - c_t0)/(1+self.beta[i])
                 # update P and Q
                 P_t1 = self.denoise_c(c_t1)
-                Q_t1 = self.denoise_u(u_t1)            
+                Q_t1 = self.denoise_u(u_t1)
 
-            c_t0 = c_t1
-            u_t0 = u_t1
-            P_t0 = P_t1
-            Q_t0 = Q_t1
+                c_t0 = c_t1
+                u_t0 = u_t1
+                P_t0 = P_t1
+                Q_t0 = Q_t1
             x_t0 = x_t1
         
         # map feature to image
         x_out = self.map_rec_x(x_t0)
-        # y_out = self.map_rec_x(c_t0+u_t0)
+        # y_out = self.map_rec_y(c_t0+u_t0)
 
         return x_out
-        # return x_out, y_out
-
-        
