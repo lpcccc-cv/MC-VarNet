@@ -135,24 +135,16 @@ class VANet(nn.Module):
         ## CDic layer
         self.E_x = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
-                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
         self.D_x = nn.Sequential(*[nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
-                                   nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
         self.E_c = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
-                                   nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
         self.D_c = nn.Sequential(*[nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2), \
-                                   nn.ReLU(), \
-                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
+                                   nn.Conv2d(in_channels=self.channel_fea, out_channels=self.channel_fea, kernel_size=3, padding=3 // 2)])
         self.T_c = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=3, padding=3 // 2), \
                                     nn.ReLU(), \
                                    nn.Conv2d(in_channels=self.in_channel, out_channels=self.in_channel, kernel_size=3, padding=3 // 2)])
