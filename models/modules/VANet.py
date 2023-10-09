@@ -211,3 +211,4 @@ class VANet(nn.Module):
         # y_out = self.map_rec_y(c_t0+u_t0)
 
         return x_out
+        # return x_out, y_out
