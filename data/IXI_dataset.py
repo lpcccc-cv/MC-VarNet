@@ -117,7 +117,7 @@ class IXI_train(data.Dataset):
         if self.train:
             return len(self.GT_paths)
         else:
-            return 200  # val时只测试200张图片
+            return 200  # for valiation
 
     def __getitem__(self, idx):
 
