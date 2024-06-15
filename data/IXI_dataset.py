@@ -117,13 +117,12 @@ class IXI_train(data.Dataset):
         if self.train:
             return len(self.GT_paths)
         else:
-            return 2000  # val时只测试200张图片
+            return 200  # val时只测试200张图片
 
     def __getitem__(self, idx):
 
         GT_img_path = self.GT_paths[idx]
-        # ref_GT_img_path = self.GT_paths[idx].replace('T2', 'PD')
-        ref_GT_img_path = self.GT_paths[idx].replace('T2', 'PD_noalign')
+        ref_GT_img_path = self.GT_paths[idx].replace('T2', 'PD')
         if self.task == 'rec':
             if self.scale == 4:
                 mask_path = '/home/lpc/dataset/IXI/MC_MRI/mask_x4.png'
