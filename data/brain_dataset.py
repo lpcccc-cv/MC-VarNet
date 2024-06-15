@@ -103,8 +103,8 @@ class brain_train(data.Dataset):
         if self.train:
             return len(self.GT_paths)
         else:
-            return len(self.GT_paths)
-            # return 200
+            # return len(self.GT_paths)
+            return 200  # for validation
 
     def __getitem__(self, idx):
 
